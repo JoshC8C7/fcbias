@@ -6,12 +6,12 @@ d_dict = {}
 
 with open('assertions.csv', newline='') as csvfile:
     spamreader = csv.reader(csvfile, delimiter='\t')
+    print(d_dict)
     for row in spamreader:
         if row[1] == '/r/Synonym' or row[1] == '/r/SimilarTo':
             k = row[0].split(',')
-            source = k[1].split('/a/wn/')[0].split('/n/wn/')[0].split('/v/wn/')[0].split('/r/wn/')[0]
-            sink = k[2].split('/a/wn/')[0].split('/n/wn/')[0].split('/v/wn/')[0].split('/r/wn/')[0]
-
+            source = k[1].split('/wn/')[0]
+            sink = k[2].split('/wn/')[0]
             if '/en/' in source and '/en/' in sink:
                 if source not in d_dict:
                     d_dict[source] = []
