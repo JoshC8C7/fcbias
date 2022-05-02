@@ -15,6 +15,8 @@ pd.set_option('display.max_colwidth', None)
 from sentence_transformers import SentenceTransformer, util
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity as skcs
+from negspacy.negation import Negex
+
 
 def ws_tokenizer(txt):
     return Doc(nlp.vocab,txt.split(" "))
@@ -73,18 +75,22 @@ def get_dataset_stream(dataset, split):
 def plot_sca(df):
     import seaborn as sns
     import matplotlib.pyplot as plt
-    dfnei = df[df['label'] == 'NOT ENOUGH INFO']
-    dfsup = df[df['label'] == 'SUPPORTS']
-    dfref = df[df['label'] == 'REFUTES']
+    dfnei = df[df['labels'] == 'NOT ENOUGH INFO']
+    dfsup = df[df['labels'] == 'SUPPORTS']
+    dfref = df[df['labels'] == 'REFUTES']
+    df['diff'] = df['entos'] - df['nsnes']
 
-    ax = sns.countplot(data=dfnei,x='frac',hue='label')
-    plt.savefig('nei.png')
+    ax = sns.stripplot(data=df,x='nsnes',y='entos',hue='labels',jitter=5,dodge=True)
+    plt.xticks(rotation=90)
 
-    ax = sns.countplot(data=dfsup,x='frac',hue='label')
-    plt.savefig('sup.png')
+    plt.savefig('all.png')
 
-    ax = sns.countplot(data=dfref,x='frac',hue='label')
-    plt.savefig('ref.png')
+    #ax = sns.countplot(data=df,x='diff',hue='labels')
+    #plt.savefig('diff.png')
+
+    #ax = sns.stripplot(data=dfref,x='nsnes',y='entos',hue='labels')
+
+    #plt.savefig('ref.png')
 
 
     return
@@ -92,5 +98,5 @@ def plot_sca(df):
 
 dataset = get_dataset_stream('fever','train')
 #find_entity_overweighting(dataset)
-ds2 = pd.read_csv('metric_design_overweighting.csv')
+ds2 = pd.read_csv('entow.csv')
 plot_sca(ds2)
