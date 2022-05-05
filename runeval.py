@@ -1,11 +1,11 @@
-import os
-from emnlp.fever2 import evidence as fvev
 
 models = [
     "tals/albert-base-vitaminc-fever",
     "tals/albert-base-vitaminc",
-    "VitaminC/models/fever"
+    "VitaminC/models/fxx_model"
 ]
+
+models = [    "VitaminC/models/fxx_model"]
 
 adversaries = [
     "emnlp-rules",
@@ -50,8 +50,8 @@ def get_cmd(mn,ds,msn):
 
 
 cmds = []
-for model in models[2:]:
-    for dataset in adversaries:
+for model in models:
+    for dataset in adversaries_mine:
         model_save_name = model.split("/")[1]
         #print("launching",model,dataset)
         cmds.append(get_cmd(model,dataset,model_save_name))
