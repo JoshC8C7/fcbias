@@ -147,16 +147,17 @@ Otherwise the training examples would always be impossible to get correct under 
 if NEG_GO:
 
 
-    def generate_neg_mismatch(dataset):
+    def generate_neg_mismatch(datasetx):
+        dataset = datasetx.sample(100)
         LABEL_DICT = {"REFUTES": -1, "SUPPORTS": 1, "NOT ENOUGH INFO": 0}
         #print(dataset)
-        wsd = Disambiguator('ewiser/ewiser.semcor+wngt.pt')
-        wsd.to('cuda')
+        #wsd = Disambiguator('ewiser/ewiser.semcor+wngt.pt')
+        #wsd.to('cpu')
         nlp = spacy.load("en_core_web_trf")
         nlp.add_pipe("merge_entities")
         nlp.add_pipe("sentencizer")
         nlp.add_pipe("negex")
-        wsd.enable(nlp, 'wsd')
+        #wsd.enable(nlp, 'wsd')
         """
         Where "-" indicates negation-word laden, and "+" indicates negation-word free:
         Adversaries are:
@@ -279,6 +280,8 @@ if NEG_GO:
         #ant_cache={}
         ant_cache = pickle.load(open("caches/ant_cache11600.p", "rb"))
         for claim, ev_neg, label_raw, id in zip(claims,ev_l, dataset['label'],dataset['id']):
+            print("//////////////////////////////")
+            print("CLAIM: ", claim, " LABEL: ", label_raw)
             if count > 0 and nsb:
                 if claim.text == claim_last:
                     done_ids.append(id)
@@ -318,6 +321,7 @@ if NEG_GO:
             elif label == 0:
                 candidate = False
 
+            print("CLAIMNEGATED: ", claim_neg, "EV NEG: ", ev_neg, "CANDIDATE:", candidate)
             if candidate and not claim_neg and id not in cla_list:
                 gc.collect()
 
@@ -417,8 +421,8 @@ if NEG_GO:
                     nsb = "".join(new_sent_both)
                     nsa = "".join(new_sent_ant)
                     nsn = "".join(new_sent_neg)
+                    print("NEGATION ONLY: ", nsn, "NEG+ANT: ", nsb)
 
-                    print("DONE:", claim, "-> ", nsb)
                     nsbs.append(nsb)
                     nsas.append(nsa)
                     nsns.append(nsn)
@@ -439,6 +443,7 @@ if NEG_GO:
 
 
     def antonym_exists(tok):
+        return "ANT_PLACEHOLDER"
         if not tok: return
 
         if tok.dep_ == 'prep' and tok.lower_ in preplookup:
@@ -576,6 +581,12 @@ def generate_overlap(dataset):
     """
     dataset['tfidf'] = dataset.apply(tfidf_sim,axis=1)
     dataset['sbert'] = dataset.apply(sbert,axis=1)
+
+    print("STDEV", dataset['sbert'].std(), dataset['sbert'].mean())
+
+    dfx = pd.DataFrame({'label':dataset['label'],'sbert':dataset['sbert']})
+    dfx.to_csv('sbert_vals2.csv')
+
     dataset['nsjacc'] = dataset.apply(non_stop_jaccard,axis=1)
 
     #High overlaps:
@@ -592,9 +603,9 @@ def generate_overlap(dataset):
     sbertids = pd.concat([sbert_filt_low,sbert_filt_high])
     nsjaccids = pd.concat([ns_jacc_filt_low,ns_jacc_filt_high])
 
-    tfids.to_csv('fever-dev-tf-id_overlap_examples.csv')
-    sbertids.to_csv('fever-dev-sbert_overlap_examples.csv')
-    nsjaccids.to_csv('fever-dev-nonstop-jaccard_overlap_examples.csv')
+    #tfids.to_csv('fever-dev-tf-id_overlap_examples.csv')
+    #sbertids.to_csv('fever-dev-sbert_overlap_examples.csv')
+    #nsjaccids.to_csv('fever-dev-nonstop-jaccard_overlap_examples.csv')
 
 
 
@@ -950,7 +961,8 @@ def generate_named_ent_overweight():
     nlp = pipeline("mrm8488/t5-base-finetuned-common_gen")
     nlp2 = pipeline('k2t')
     df = pd.read_json('VitaminC/data/vitaminc/test.jsonl',lines=True)
-    df = pd.read_csv('ungram.csv')
+    #df = pd.read_csv('ungram.csv')
+
     print(df)
     #df = df[df['label'] != "NOT ENOUGH INFO"]
     df.reset_index()
@@ -960,7 +972,7 @@ def generate_named_ent_overweight():
 
 
     nlp3 = spacy.load('en_core_web_trf')
-    docs2 = nlp3.pipe(df['evidence'])
+    docs2 = nlp3.pipe(["Steve sought $ 210 million in damages and was ongoing as of 2016 "])
     lend2 = len(df)
 
     for i, evidence in enumerate(docs2):
@@ -988,7 +1000,7 @@ def generate_named_ent_overweight():
             df.iloc[i,coldex] = nlp2(nc4).replace("RT ", "Rotten Tomatoes ").split(". ")[0]
         else:
             df.iloc[i, coldex] = newval
-    df.to_csv('ungramnew.csv')
+    #df.to_csv('ungramnew.csv')
 
 
     return
@@ -1011,9 +1023,9 @@ def augmented_insensitivity():
 
 
 if __name__ == '__main__':
-    dataset = get_dataset_stream('fever','train')
+    dataset = get_dataset_stream('fever','dev')
     #ds2 = pd.read_csv('neg_overlap_fever_dev_sample.csv')
-    generate_neg_mismatch(dataset)
+    #generate_neg_mismatch(dataset)
     #generate_num_mismatch()
     #generate_named_ent_overweight()
-    #generate_overlap(dataset)
+    generate_overlap(dataset)

@@ -1,19 +1,16 @@
 
 models = [
+    "models/fxx_model",
     "tals/albert-base-vitaminc-fever",
     "tals/albert-base-vitaminc",
-    "VitaminC/models/fxx_model"
 ]
 
-models = [    "VitaminC/models/fxx_model"]
+models=[]
 
-adversaries = [
-    "emnlp-rules",
-    "emnlp-sampled",
-    "emnlp-searsfever",
-    "emnlp-searssentiment",
-    "emnlp-wnfever"
-]
+for training_set in ['fever_only','vitc_fever','vitc_only']:
+    for bias_method in ['poe','poe_anneal','reweight','reweight_anneal','conf_reg','conf_reg_anneal']:
+        for bias_file in ['known_ent_overweight','shallow']:
+            models.append('models/bias_trained/'+training_set+'/'+bias_method+'/'+bias_file)
 
 
 adversaries_mine = [
@@ -30,42 +27,74 @@ adversaries_mine = [
 ]
 
 
-def get_cmd(mn,ds,msn):
-    cmd = "python VitaminC/scripts/fact_verification.py \
+test_tasks = [
+"vitaminc_real",
+"vitaminc_synthetic",
+"fever",
+"fever_adversarial",
+"fever_symmetric",
+"fever_triggers",
+"entity_overweighting",
+"neg_overlap_manual",
+"numerical_mismatch",
+"sbert_overlap"
+]
+
+def get_cmd(mn):
+    tasks = " ".join(test_tasks)
+    cmd = "python scripts/fact_verification.py \
   --model_name_or_path "+mn+" \
-  --tasks_names " +ds+" \
-  --data_dir VitaminC/data \
-  --do_test \
+  --test_tasks "+tasks+" \
+  --data_dir data/final_eval_set \
   --max_seq_length 256 \
-  --per_device_train_batch_size 16 \
   --per_device_eval_batch_size 32 \
-  --learning_rate 2e-5 \
-  --max_steps 50000 \
-  --save_step 10000 \
-  --overwrite_cache \
-  --do_predict\
-  --output_dir results/auto/"+msn+"/"+ds +" \
-  "
+  --do_test \
+  --output_dir results/auto_final/"+mn
+
     return cmd
 
+def write_testing_cmd():
+    cmds = list(get_cmd(model) for model in models)
+    out_cmd = (" && ".join(cmds))
+    with open("eval_gen.sh",'w') as f:
+        f.write(out_cmd)
 
-cmds = []
-for model in models:
-    for dataset in adversaries_mine:
-        model_save_name = model.split("/")[1]
-        #print("launching",model,dataset)
-        cmds.append(get_cmd(model,dataset,model_save_name))
-        #print("done",model,dataset)
+def read_test_results():
+    import pandas as pd
+    dict_list = []
+    for p in models:
+        model_res_dict = {}
+        for task in test_tasks:
+            pa = 'Vitaminc/results/bert_results/' + p+"/"+"test_results_"+task+".txt"
+            pa = p+"/"+"test_results_"+task+".txt"
 
+            res_df = pd.read_table(pa,sep='=',header=None)
+            model_res_dict[task] = res_df.loc[1,1]
+        dict_list.append(model_res_dict)
+    d2 = pd.DataFrame(dict_list)
+    d2.index = models
+    print(d2)
+    d2.to_csv('newresres.csv')
 
+ld = {}
 
+def get_losses():
+    import json
+    for p in models:
+        pk = 'VitaminC/'+p+'/checkpoint-50000/trainer_state.json'
+        try:
+            with open(pk) as f:
+                train_d = json.load(f)
 
+                print(p)
+                losses = list(k['loss'] for k in train_d['log_history'])
+                ld[p] = losses
 
-print(" && ".join(cmds))
-"""
-for model in models:
-    print("////////"+model)
-    for dataset in adversaries:
-        model_save_name = model.split("/")[1]
-        with open('results/auto/'+model_save_name+'/'+dataset+'/test_results_'+dataset+'.txt') as resf:
-            print(dataset," : ",resf.readlines()[1].split("= ")[1])"""
+        except:
+            print("skipping", p)
+
+get_losses()
+
+import pandas as pd
+df = pd.DataFrame(ld)
+df.to_csv('losses_alb.csv')
